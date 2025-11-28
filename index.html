@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق تجويد - مصحف إلكتروني كامل</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f8fafc;
+        }
+        .arabic-text {
+            font-family: 'Amiri', serif;
+        }
+        .player-progress {
+            height: 6px;
+            background-color: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .player-progress-fill {
+            height: 100%;
+            background-color: #10b981;
+            transition: width 0.3s ease;
+        }
+        .surah-card {
+            transition: all 0.3s ease;
+        }
+        .surah-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .reader-card {
+            transition: all 0.3s ease;
+        }
+        .reader-card:hover {
+            transform: translateY(-2px);
+        }
+        .active-tab {
+            border-bottom: 3px solid #10b981;
+            color: #10b981;
+            font-weight: bold;
+        }
+        .audio-player {
+            box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <!-- التطبيق الرئيسي -->
+    <div class="max-w-md mx-auto bg-white min-h-screen shadow-lg relative">
+        <!-- الهيدر -->
+        <header class="bg-green-600 text-white p-4 sticky top-0 z-10 shadow-md">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                    <i class="fas fa-quran text-2xl ml-2"></i>
+                    <h1 class="text-xl font-bold">تطبيق تجويد</h1>
+                </div>
+                <div class="flex items-center">
+                    <button id="search-toggle" class="ml-3">
+                        <i class="fas fa-search text-lg"></i>
+                    </button>
+                    <button id="theme-toggle">
+                        <i class="fas fa-moon text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- شريط البحث -->
+            <div id="search-bar" class="mt-3 hidden">
+                <div class="relative">
+                    <input type="text" id="search-input" placeholder="ابحث عن سورة..." class="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-800">
+                    <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+                </div>
+            </div>
+        </header>
+
+        <!-- شريط التنقل -->
+        <div class="flex border-b bg-white">
+            <button id="tab-surah" class="flex-1 py-3 text-center active-tab">السور</button>
+            <button id="tab-readers" class="flex-1 py-3 text-center">القراء</button>
+            <button id="tab-bookmarks" class="flex-1 py-3 text-center">المفضلة</button>
+            <button id="tab-about" class="flex-1 py-3 text-center">حول</button>
+        </div>
+
+        <!-- محتوى التطبيق -->
+        <main class="pb-24">
+            <!-- قسم السور -->
+            <div id="content-surah" class="p-4">
+                <div class="mb-4 flex justify-between items-center">
+                    <h2 class="text-lg font-bold">سور القرآن الكريم</h2>
+                    <div class="flex">
+                        <button id="sort-order" class="bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded-lg ml-2">
+                            <i class="fas fa-sort-amount-down"></i>
+                        </button>
+                        <button id="filter-type" class="bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded-lg">
+                            الكل
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3" id="surah-list">
+                    <!-- قائمة السور سيتم إنشاؤها بواسطة JavaScript -->
+                </div>
+            </div>
+
+            <!-- قسم القراء -->
+            <div id="content-readers" class="p-4 hidden">
+                <h2 class="text-lg font-bold mb-4">أشهر القراء</h2>
+                <div class="grid grid-cols-2 gap-4" id="readers-list">
+                    <!-- قائمة القراء سيتم إنشاؤها بواسطة JavaScript -->
+                </div>
+            </div>
+
+            <!-- قسم المفضلة -->
+            <div id="content-bookmarks" class="p-4 hidden">
+                <h2 class="text-lg font-bold mb-4">التلاوات المفضلة</h2>
+                <div id="bookmarks-list">
+                    <!-- قائمة المفضلة سيتم إنشاؤها بواسطة JavaScript -->
+                </div>
+            </div>
+
+            <!-- قسم حول التطبيق -->
+            <div id="content-about" class="p-4 hidden">
+                <div class="bg-green-50 rounded-lg p-4 mb-6">
+                    <h2 class="text-xl font-bold text-green-800 mb-2">تطبيق تجويد</h2>
+                    <p class="text-green-700">تطبيق مجاني للاستماع إلى القرآن الكريم كاملًا بصوت أشهر القراء</p>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold mb-3">مميزات التطبيق</h3>
+                    <ul class="space-y-2">
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-green-500 mt-1 ml-2"></i>
+                            <span>القرآن الكريم كامل (114 سورة)</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-green-500 mt-1 ml-2"></i>
+                            <span>مجموعة من أشهر القراء حول العالم</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-green-500 mt-1 ml-2"></i>
+                            <span>إمكانية التكرار وتغيير سرعة التشغيل</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-green-500 mt-1 ml-2"></i>
+                            <span>إضافة التلاوات إلى المفضلة</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fas fa-check text-green-500 mt-1 ml-2"></i>
+                            <span>وضع الليل لحماية العينين</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-lg font-bold mb-3">حول الصوتيات</h3>
+                    <p class="text-gray-700 mb-2">يستخدم التطبيق صوتيات من موقع mp3quran.net الذي يوفر تلاوات بدون حقوق نشر.</p>
+                    <p class="text-gray-700">جميع الصوتيات متاحة للاستخدام العام ولا توجد حقوق ملكية عليها.</p>
+                </div>
+                
+                <div class="text-center text-gray-500 text-sm">
+                    <p>تم التطوير بدقة وحب لخدمة القرآن الكريم</p>
+                    <p class="mt-2">© 2023 تطبيق تجويد</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- مشغل الصوت -->
+        <div class="audio-player fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
+            <div class="max-w-md mx-auto">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center truncate">
+                        <img id="current-reader-img" src="" alt="القارئ" class="w-10 h-10 rounded-full object-cover ml-2 hidden flex-shrink-0">
+                        <div class="truncate">
+                            <h3 id="current-surah" class="font-bold text-sm truncate">اختر سورة للاستماع</h3>
+                            <p id="current-reader" class="text-xs text-gray-500 truncate">اختر قارئًا</p>
+                        </div>
+                    </div>
+                    <button id="bookmark-btn" class="text-gray-400 flex-shrink-0">
+                        <i class="far fa-bookmark"></i>
+                    </button>
+                </div>
+
+                <div class="player-progress mb-2">
+                    <div id="progress-fill" class="player-progress-fill w-0"></div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <span id="current-time" class="text-xs text-gray-500">0:00</span>
+                    <div class="flex items-center space-x-4">
+                        <button id="repeat-btn" class="text-gray-500">
+                            <i class="fas fa-redo"></i>
+                        </button>
+                        <button id="prev-btn" class="text-gray-700">
+                            <i class="fas fa-step-backward"></i>
+                        </button>
+                        <button id="play-btn" class="bg-green-600 text-white p-2 rounded-full w-10 h-10 flex items-center justify-center">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button id="next-btn" class="text-gray-700">
+                            <i class="fas fa-step-forward"></i>
+                        </button>
+                        <button id="playback-rate" class="text-gray-500 text-sm">1x</button>
+                    </div>
+                    <span id="duration" class="text-xs text-gray-500">0:00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // بيانات السور الكاملة (114 سورة)
+        const surahs = [
+            { id: 1, name: "الفاتحة", ayahs: 7, type: "مكية", page: 1 },
+            { id: 2, name: "البقرة", ayahs: 286, type: "مدنية", page: 2 },
+            { id: 3, name: "آل عمران", ayahs: 200, type: "مدنية", page: 50 },
+            { id: 4, name: "النساء", ayahs: 176, type: "مدنية", page: 77 },
+            { id: 5, name: "المائدة", ayahs: 120, type: "مدنية", page: 106 },
+            { id: 6, name: "الأنعام", ayahs: 165, type: "مكية", page: 128 },
+            { id: 7, name: "الأعراف", ayahs: 206, type: "مكية", page: 151 },
+            { id: 8, name: "الأنفال", ayahs: 75, type: "مدنية", page: 177 },
+            { id: 9, name: "التوبة", ayahs: 129, type: "مدنية", page: 187 },
+            { id: 10, name: "يونس", ayahs: 109, type: "مكية", page: 208 },
+            { id: 11, name: "هود", ayahs: 123, type: "مكية", page: 221 },
+            { id: 12, name: "يوسف", ayahs: 111, type: "مكية", page: 235 },
+            { id: 13, name: "الرعد", ayahs: 43, type: "مدنية", page: 249 },
+            { id: 14, name: "إبراهيم", ayahs: 52, type: "مكية", page: 255 },
+            { id: 15, name: "الحجر", ayahs: 99, type: "مكية", page: 262 },
+            { id: 16, name: "النحل", ayahs: 128, type: "مكية", page: 267 },
+            { id: 17, name: "الإسراء", ayahs: 111, type: "مكية", page: 282 },
+            { id: 18, name: "الكهف", ayahs: 110, type: "مكية", page: 293 },
+            { id: 19, name: "مريم", ayahs: 98, type: "مكية", page: 305 },
+            { id: 20, name: "طه", ayahs: 135, type: "مكية", page: 312 },
+            { id: 21, name: "الأنبياء", ayahs: 112, type: "مكية", page: 322 },
+            { id: 22, name: "الحج", ayahs: 78, type: "مدنية", page: 332 },
+            { id: 23, name: "المؤمنون", ayahs: 118, type: "مكية", page: 342 },
+            { id: 24, name: "النور", ayahs: 64, type: "مدنية", page: 350 },
+            { id: 25, name: "الفرقان", ayahs: 77, type: "مكية", page: 359 },
+            { id: 26, name: "الشعراء", ayahs: 227, type: "مكية", page: 367 },
+            { id: 27, name: "النمل", ayahs: 93, type: "مكية", page: 377 },
+            { id: 28, name: "القصص", ayahs: 88, type: "مكية", page: 385 },
+            { id: 29, name: "العنكبوت", ayahs: 69, type: "مكية", page: 396 },
+            { id: 30, name: "الروم", ayahs: 60, type: "مكية", page: 404 },
+            { id: 31, name: "لقمان", ayahs: 34, type: "مكية", page: 411 },
+            { id: 32, name: "السجدة", ayahs: 30, type: "مكية", page: 415 },
+            { id: 33, name: "الأحزاب", ayahs: 73, type: "مدنية", page: 418 },
+            { id: 34, name: "سبأ", ayahs: 54, type: "مكية", page: 428 },
+            { id: 35, name: "فاطر", ayahs: 45, type: "مكية", page: 434 },
+            { id: 36, name: "يس", ayahs: 83, type: "مكية", page: 440 },
+            { id: 37, name: "الصافات", ayahs: 182, type: "مكية", page: 446 },
+            { id: 38, name: "ص", ayahs: 88, type: "مكية", page: 453 },
+            { id: 39, name: "الزمر", ayahs: 75, type: "مكية", page: 458 },
+            { id: 40, name: "غافر", ayahs: 85, type: "مكية", page: 467 },
+            { id: 41, name: "فصلت", ayahs: 54, type: "مكية", page: 477 },
+            { id: 42, name: "الشورى", ayahs: 53, type: "مكية", page: 483 },
+            { id: 43, name: "الزخرف", ayahs: 89, type: "مكية", page: 489 },
+            { id: 44, name: "الدخان", ayahs: 59, type: "مكية", page: 496 },
+            { id: 45, name: "الجاثية", ayahs: 37, type: "مكية", page: 499 },
+            { id: 46, name: "الأحقاف", ayahs: 35, type: "مكية", page: 502 },
+            { id: 47, name: "محمد", ayahs: 38, type: "مدنية", page: 507 },
+            { id: 48, name: "الفتح", ayahs: 29, type: "مدنية", page: 511 },
+            { id: 49, name: "الحجرات", ayahs: 18, type: "مدنية", page: 515 },
+            { id: 50, name: "ق", ayahs: 45, type: "مكية", page: 518 },
+            { id: 51, name: "الذاريات", ayahs: 60, type: "مكية", page: 520 },
+            { id: 52, name: "الطور", ayahs: 49, type: "مكية", page: 523 },
+            { id: 53, name: "النجم", ayahs: 62, type: "مكية", page: 526 },
+            { id: 54, name: "القمر", ayahs: 55, type: "مكية", page: 528 },
+            { id: 55, name: "الرحمن", ayahs: 78, type: "مدنية", page: 531 },
+            { id: 56, name: "الواقعة", ayahs: 96, type: "مكية", page: 534 },
+            { id: 57, name: "الحديد", ayahs: 29, type: "مدنية", page: 537 },
+            { id: 58, name: "المجادلة", ayahs: 22, type: "مدنية", page: 542 },
+            { id: 59, name: "الحشر", ayahs: 24, type: "مدنية", page: 545 },
+            { id: 60, name: "الممتحنة", ayahs: 13, type: "مدنية", page: 549 },
+            { id: 61, name: "الصف", ayahs: 14, type: "مدنية", page: 551 },
+            { id: 62, name: "الجمعة", ayahs: 11, type: "مدنية", page: 553 },
+            { id: 63, name: "المنافقون", ayahs: 11, type: "مدنية", page: 554 },
+            { id: 64, name: "التغابن", ayahs: 18, type: "مدنية", page: 556 },
+            { id: 65, name: "الطلاق", ayahs: 12, type: "مدنية", page: 558 },
+            { id: 66, name: "التحريم", ayahs: 12, type: "مدنية", page: 560 },
+            { id: 67, name: "الملك", ayahs: 30, type: "مكية", page: 562 },
+            { id: 68, name: "القلم", ayahs: 52, type: "مكية", page: 564 },
+            { id: 69, name: "الحاقة", ayahs: 52, type: "مكية", page: 566 },
+            { id: 70, name: "المعارج", ayahs: 44, type: "مكية", page: 568 },
+            { id: 71, name: "نوح", ayahs: 28, type: "مكية", page: 570 },
+            { id: 72, name: "الجن", ayahs: 28, type: "مكية", page: 572 },
+            { id: 73, name: "المزمل", ayahs: 20, type: "مكية", page: 574 },
+            { id: 74, name: "المدثر", ayahs: 56, type: "مكية", page: 575 },
+            { id: 75, name: "القيامة", ayahs: 40, type: "مكية", page: 577 },
+            { id: 76, name: "الإنسان", ayahs: 31, type: "مدنية", page: 578 },
+            { id: 77, name: "المرسلات", ayahs: 50, type: "مكية", page: 580 },
+            { id: 78, name: "النبأ", ayahs: 40, type: "مكية", page: 582 },
+            { id: 79, name: "النازعات", ayahs: 46, type: "مكية", page: 583 },
+            { id: 80, name: "عبس", ayahs: 42, type: "مكية", page: 585 },
+            { id: 81, name: "التكوير", ayahs: 29, type: "مكية", page: 586 },
+            { id: 82, name: "الإنفطار", ayahs: 19, type: "مكية", page: 587 },
+            { id: 83, name: "المطففين", ayahs: 36, type: "مكية", page: 587 },
+            { id: 84, name: "الانشقاق", ayahs: 25, type: "مكية", page: 589 },
+            { id: 85, name: "البروج", ayahs: 22, type: "مكية", page: 590 },
+            { id: 86, name: "الطارق", ayahs: 17, type: "مكية", page: 591 },
+            { id: 87, name: "الأعلى", ayahs: 19, type: "مكية", page: 591 },
+            { id: 88, name: "الغاشية", ayahs: 26, type: "مكية", page: 592 },
+            { id: 89, name: "الفجر", ayahs: 30, type: "مكية", page: 593 },
+            { id: 90, name: "البلد", ayahs: 20, type: "مكية", page: 594 },
+            { id: 91, name: "الشمس", ayahs: 15, type: "مكية", page: 595 },
+            { id: 92, name: "الليل", ayahs: 21, type: "مكية", page: 595 },
+            { id: 93, name: "الضحى", ayahs: 11, type: "مكية", page: 596 },
+            { id: 94, name: "الشرح", ayahs: 8, type: "مكية", page: 596 },
+            { id: 95, name: "التين", ayahs: 8, type: "مكية", page: 597 },
+            { id: 96, name: "العلق", ayahs: 19, type: "مكية", page: 597 },
+            { id: 97, name: "القدر", ayahs: 5, type: "مكية", page: 598 },
+            { id: 98, name: "البينة", ayahs: 8, type: "مدنية", page: 598 },
+            { id: 99, name: "الزلزلة", ayahs: 8, type: "مدنية", page: 599 },
+            { id: 100, name: "العاديات", ayahs: 11, type: "مكية", page: 599 },
+            { id: 101, name: "القارعة", ayahs: 11, type: "مكية", page: 600 },
+            { id: 102, name: "التكاثر", ayahs: 8, type: "مكية", page: 600 },
+            { id: 103, name: "العصر", ayahs: 3, type: "مكية", page: 601 },
+            { id: 104, name: "الهمزة", ayahs: 9, type: "مكية", page: 601 },
+            { id: 105, name: "الفيل", ayahs: 5, type: "مكية", page: 601 },
+            { id: 106, name: "قريش", ayahs: 4, type: "مكية", page: 602 },
+            { id: 107, name: "الماعون", ayahs: 7, type: "مكية", page: 602 },
+            { id: 108, name: "الكوثر", ayahs: 3, type: "مكية", page: 602 },
+            { id: 109, name: "الكافرون", ayahs: 6, type: "مكية", page: 603 },
+            { id: 110, name: "النصر", ayahs: 3, type: "مدنية", page: 603 },
+            { id: 111, name: "المسد", ayahs: 5, type: "مكية", page: 603 },
+            { id: 112, name: "الإخلاص", ayahs: 4, type: "مكية", page: 604 },
+            { id: 113, name: "الفلق", ayahs: 5, type: "مكية", page: 604 },
+            { id: 114, name: "الناس", ayahs: 6, type: "مكية", page: 604 }
+        ];
+
+        // بيانات القراء مع روابط الصوتيات من mp3quran.net
+        const readers = [
+            { 
+                id: 1, 
+                name: "إسلام صبحي", 
+                image: "https://via.placeholder.com/100x100/10B981/FFFFFF?text=إسلام+صبحي",
+                baseUrl: "https://server8.mp3quran.net/abdalrhman/"
+            },
+            { 
+                id: 2, 
+                name: "محمود خليل الحصري", 
+                image: "https://via.placeholder.com/100x100/EF4444/FFFFFF?text=الحصري",
+                baseUrl: "https://server8.mp3quran.net/husary/"
+            },
+            { 
+                id: 3, 
+                name: "عبد الباسط عبد الصمد", 
+                image: "https://via.placeholder.com/100x100/3B82F6/FFFFFF?text=عبد+الباسط",
+                baseUrl: "https://server8.mp3quran.net/abdulbasit/"
+            },
+            { 
+                id: 4, 
+                name: "مشاري العفاسي", 
+                image: "https://via.placeholder.com/100x100/8B5CF6/FFFFFF?text=العفاسي",
+                baseUrl: "https://server8.mp3quran.net/afasy/"
+            },
+            { 
+                id: 5, 
+                name: "سعد الغامدي", 
+                image: "https://via.placeholder.com/100x100/F59E0B/FFFFFF?text=الغامدي",
+                baseUrl: "https://server8.mp3quran.net/gaamdi/"
+            },
+            { 
+                id: 6, 
+                name: "أبو بكر الشاطري", 
+                image: "https://via.placeholder.com/100x100/EC4899/FFFFFF?text=الشاطري",
+                baseUrl: "https://server8.mp3quran.net/shatri/"
+            }
+        ];
+
+        // عناصر DOM
+        const tabSurah = document.getElementById('tab-surah');
+        const tabReaders = document.getElementById('tab-readers');
+        const tabBookmarks = document.getElementById('tab-bookmarks');
+        const tabAbout = document.getElementById('tab-about');
+        const contentSurah = document.getElementById('content-surah');
+        const contentReaders = document.getElementById('content-readers');
+        const contentBookmarks = document.getElementById('content-bookmarks');
+        const contentAbout = document.getElementById('content-about');
+        const surahList = document.getElementById('surah-list');
+        const readersList = document.getElementById('readers-list');
+        const bookmarksList = document.getElementById('bookmarks-list');
+        const searchToggle = document.getElementById('search-toggle');
+        const searchBar = document.getElementById('search-bar');
+        const searchInput = document.getElementById('search-input');
+        const themeToggle = document.getElementById('theme-toggle');
+        const sortOrder = document.getElementById('sort-order');
+        const filterType = document.getElementById('filter-type');
+        const playBtn = document.getElementById('play-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const repeatBtn = document.getElementById('repeat-btn');
+        const bookmarkBtn = document.getElementById('bookmark-btn');
+        const playbackRateBtn = document.getElementById('playback-rate');
+        const currentSurah = document.getElementById('current-surah');
+        const currentReader = document.getElementById('current-reader');
+        const currentReaderImg = document.getElementById('current-reader-img');
+        const progressFill = document.getElementById('progress-fill');
+        const currentTime = document.getElementById('current-time');
+        const duration = document.getElementById('duration');
+
+        // متغيرات التطبيق
+        let currentAudio = null;
+        let isPlaying = false;
+        let isRepeating = false;
+        let currentPlaybackRate = 1;
+        let selectedSurah = null;
+        let selectedReader = null;
+        let bookmarks = JSON.parse(localStorage.getItem('quranBookmarks')) || [];
+        let isAscending = true;
+        let currentFilter = 'all';
+        let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+        // تهيئة التطبيق
+        function initApp() {
+            renderSurahs();
+            renderReaders();
+            renderBookmarks();
+            setupEventListeners();
+            applyTheme();
+        }
+
+        // تطبيق الوضع الليلي
+        function applyTheme() {
+            if (isDarkMode) {
+                document.body.classList.add('bg-gray-900', 'text-white');
+                document.querySelector('.max-w-md').classList.add('bg-gray-800');
+                document.querySelector('header').classList.remove('bg-green-600');
+                document.querySelector('header').classList.add('bg-green-800');
+                themeToggle.innerHTML = '<i class="fas fa-sun text-lg"></i>';
+                
+                // تحديث ألوان العناصر الأخرى
+                document.querySelectorAll('.bg-white').forEach(el => {
+                    el.classList.remove('bg-white');
+                    el.classList.add('bg-gray-700');
+                });
+                
+                document.querySelectorAll('.border-gray-200').forEach(el => {
+                    el.classList.remove('border-gray-200');
+                    el.classList.add('border-gray-600');
+                });
+                
+                document.querySelectorAll('.text-gray-800').forEach(el => {
+                    el.classList.remove('text-gray-800');
+                    el.classList.add('text-gray-200');
+                });
+                
+                document.querySelectorAll('.text-gray-500').forEach(el => {
+                    el.classList.remove('text-gray-500');
+                    el.classList.add('text-gray-400');
+                });
+                
+                document.querySelectorAll('.bg-gray-100').forEach(el => {
+                    el.classList.remove('bg-gray-100', 'text-gray-700');
+                    el.classList.add('bg-gray-600', 'text-gray-200');
+                });
+            } else {
+                document.body.classList.remove('bg-gray-900', 'text-white');
+                document.querySelector('.max-w-md').classList.remove('bg-gray-800');
+                document.querySelector('header').classList.remove('bg-green-800');
+                document.querySelector('header').classList.add('bg-green-600');
+                themeToggle.innerHTML = '<i class="fas fa-moon text-lg"></i>';
+                
+                // إعادة الألوان الأصلية
+                document.querySelectorAll('.bg-gray-700').forEach(el => {
+                    el.classList.remove('bg-gray-700');
+                    el.classList.add('bg-white');
+                });
+                
+                document.querySelectorAll('.border-gray-600').forEach(el => {
+                    el.classList.remove('border-gray-600');
+                    el.classList.add('border-gray-200');
+                });
+                
+                document.querySelectorAll('.text-gray-200').forEach(el => {
+                    el.classList.remove('text-gray-200');
+                    el.classList.add('text-gray-800');
+                });
+                
+                document.querySelectorAll('.text-gray-400').forEach(el => {
+                    el.classList.remove('text-gray-400');
+                    el.classList.add('text-gray-500');
+                });
+                
+                document.querySelectorAll('.bg-gray-600').forEach(el => {
+                    el.classList.remove('bg-gray-600', 'text-gray-200');
+                    el.classList.add('bg-gray-100', 'text-gray-700');
+                });
+            }
+            
+            localStorage.setItem('darkMode', isDarkMode);
+        }
+
+        // عرض السور
+        function renderSurahs() {
+            surahList.innerHTML = '';
+            
+            // تصفية السور حسب النوع
+            let filteredSurahs = surahs;
+            if (currentFilter !== 'all') {
+                filteredSurahs = surahs.filter(surah => surah.type === currentFilter);
+            }
+            
+            // ترتيب السور
+            const sortedSurahs = [...filteredSurahs].sort((a, b) => {
+                return isAscending ? a.id - b.id : b.id - a.id;
+            });
+            
+            // البحث
+            const searchTerm = searchInput.value.toLowerCase();
+            const searchedSurahs = searchTerm ? 
+                sortedSurahs.filter(surah => surah.name.toLowerCase().includes(searchTerm)) : 
+                sortedSurahs;
+            
+            if (searchedSurahs.length === 0) {
+                surahList.innerHTML = `
+                    <div class="text-center py-10 text-gray-500">
+                        <i class="fas fa-search text-4xl mb-3"></i>
+                        <p>لا توجد نتائج للبحث</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            searchedSurahs.forEach(surah => {
+                const surahCard = document.createElement('div');
+                surahCard.className = 'surah-card bg-white rounded-lg p-4 border border-gray-200 flex justify-between items-center';
+                surahCard.innerHTML = `
+                    <div>
+                        <div class="flex items-center">
+                            <span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded ml-2">${surah.id}</span>
+                            <h3 class="font-bold arabic-text">سورة ${surah.name}</h3>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">${surah.ayahs} آية • ${surah.type} • الصفحة ${surah.page}</p>
+                    </div>
+                    <div class="flex items-center">
+                        <button class="play-surah text-green-600 ml-2" data-surah="${surah.id}">
+                            <i class="fas fa-play-circle text-xl"></i>
+                        </button>
+                        <button class="bookmark-surah text-gray-400" data-surah="${surah.id}">
+                            <i class="far fa-bookmark"></i>
+                        </button>
+                    </div>
+                `;
+                surahList.appendChild(surahCard);
+            });
+
+            // تحديث أزرار الإشارات المرجعية
+            updateBookmarkButtons();
+            
+            // إضافة مستمعي الأحداث لأزرار التشغيل
+            document.querySelectorAll('.play-surah').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const surahId = this.getAttribute('data-surah');
+                    playSurah(surahId);
+                });
+            });
+            
+            // إضافة مستمعي الأحداث لأزرار الإشارات المرجعية
+            document.querySelectorAll('.bookmark-surah').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const surahId = this.getAttribute('data-surah');
+                    toggleBookmarkSurah(surahId);
+                });
+            });
+        }
+
+        // عرض القراء
+        function renderReaders() {
+            readersList.innerHTML = '';
+            readers.forEach(reader => {
+                const readerCard = document.createElement('div');
+                readerCard.className = 'reader-card bg-white rounded-lg p-4 border border-gray-200 text-center';
+                readerCard.innerHTML = `
+                    <img src="${reader.image}" alt="${reader.name}" class="w-16 h-16 rounded-full mx-auto mb-2 object-cover">
+                    <h3 class="font-bold">${reader.name}</h3>
+                    <button class="select-reader mt-2 bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded" data-reader="${reader.id}">
+                        اختر
+                    </button>
+                `;
+                readersList.appendChild(readerCard);
+            });
+
+            // إضافة مستمعي الأحداث لأزرار اختيار القارئ
+            document.querySelectorAll('.select-reader').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const readerId = this.getAttribute('data-reader');
+                    selectReader(readerId);
+                });
+            });
+        }
+
+        // عرض المفضلة
+        function renderBookmarks() {
+            bookmarksList.innerHTML = '';
+            
+            if (bookmarks.length === 0) {
+                bookmarksList.innerHTML = `
+                    <div class="text-center py-10 text-gray-500">
+                        <i class="fas fa-bookmark text-4xl mb-3"></i>
+                        <p>لا توجد تلاوات في المفضلة</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            bookmarks.forEach(bookmark => {
+                const surah = surahs.find(s => s.id == bookmark.surahId);
+                const reader = readers.find(r => r.id == bookmark.readerId);
+                
+                if (!surah || !reader) return;
+                
+                const bookmarkCard = document.createElement('div');
+                bookmarkCard.className = 'surah-card bg-white rounded-lg p-4 border border-gray-200 flex justify-between items-center mb-3';
+                bookmarkCard.innerHTML = `
+                    <div>
+                        <div class="flex items-center">
+                            <span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded ml-2">${surah.id}</span>
+                            <h3 class="font-bold arabic-text">سورة ${surah.name}</h3>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">القارئ: ${reader.name}</p>
+                    </div>
+                    <div class="flex items-center">
+                        <button class="play-bookmark text-green-600 ml-2" data-surah="${surah.id}" data-reader="${reader.id}">
+                            <i class="fas fa-play-circle text-xl"></i>
+                        </button>
+                        <button class="remove-bookmark text-red-500" data-surah="${surah.id}" data-reader="${reader.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                bookmarksList.appendChild(bookmarkCard);
+            });
+            
+            // إضافة مستمعي الأحداث لأزرار التشغيل
+            document.querySelectorAll('.play-bookmark').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const surahId = this.getAttribute('data-surah');
+                    const readerId = this.getAttribute('data-reader');
+                    selectReader(readerId);
+                    playSurah(surahId);
+                });
+            });
+            
+            // إضافة مستمعي الأحداث لأزرار الحذف
+            document.querySelectorAll('.remove-bookmark').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const surahId = this.getAttribute('data-surah');
+                    const readerId = this.getAttribute('data-reader');
+                    removeBookmark(surahId, readerId);
+                });
+            });
+        }
+
+        // إعداد مستمعي الأحداث
+        function setupEventListeners() {
+            // التنقل بين الأقسام
+            tabSurah.addEventListener('click', () => switchTab('surah'));
+            tabReaders.addEventListener('click', () => switchTab('readers'));
+            tabBookmarks.addEventListener('click', () => switchTab('bookmarks'));
+            tabAbout.addEventListener('click', () => switchTab('about'));
+
+            // البحث
+            searchToggle.addEventListener('click', () => {
+                searchBar.classList.toggle('hidden');
+                if (!searchBar.classList.contains('hidden')) {
+                    searchInput.focus();
+                }
+            });
+            
+            searchInput.addEventListener('input', renderSurahs);
+            
+            // تبديل الوضع الليلي
+            themeToggle.addEventListener('click', () => {
+                isDarkMode = !isDarkMode;
+                applyTheme();
+                renderSurahs();
+                renderReaders();
+                renderBookmarks();
+            });
+            
+            // الترتيب والتصفية
+            sortOrder.addEventListener('click', () => {
+                isAscending = !isAscending;
+                sortOrder.innerHTML = isAscending ? 
+                    '<i class="fas fa-sort-amount-down"></i>' : 
+                    '<i class="fas fa-sort-amount-up"></i>';
+                renderSurahs();
+            });
+            
+            filterType.addEventListener('click', () => {
+                currentFilter = currentFilter === 'all' ? 'مكية' : 
+                               currentFilter === 'مكية' ? 'مدنية' : 'all';
+                filterType.textContent = currentFilter === 'all' ? 'الكل' : currentFilter;
+                renderSurahs();
+            });
+
+            // مشغل الصوت
+            playBtn.addEventListener('click', togglePlay);
+            prevBtn.addEventListener('click', playPrevious);
+            nextBtn.addEventListener('click', playNext);
+            repeatBtn.addEventListener('click', toggleRepeat);
+            bookmarkBtn.addEventListener('click', toggleCurrentBookmark);
+            playbackRateBtn.addEventListener('click', changePlaybackRate);
+        }
+
+        // تبديل الأقسام
+        function switchTab(tab) {
+            // إعادة تعليمات التبويبات
+            tabSurah.classList.remove('active-tab');
+            tabReaders.classList.remove('active-tab');
+            tabBookmarks.classList.remove('active-tab');
+            tabAbout.classList.remove('active-tab');
+            
+            // إخفاء جميع المحتويات
+            contentSurah.classList.add('hidden');
+            contentReaders.classList.add('hidden');
+            contentBookmarks.classList.add('hidden');
+            contentAbout.classList.add('hidden');
+            
+            // إظهار المحتوى المطلوب
+            if (tab === 'surah') {
+                tabSurah.classList.add('active-tab');
+                contentSurah.classList.remove('hidden');
+            } else if (tab === 'readers') {
+                tabReaders.classList.add('active-tab');
+                contentReaders.classList.remove('hidden');
+            } else if (tab === 'bookmarks') {
+                tabBookmarks.classList.add('active-tab');
+                contentBookmarks.classList.remove('hidden');
+            } else if (tab === 'about') {
+                tabAbout.classList.add('active-tab');
+                contentAbout.classList.remove('hidden');
+            }
+        }
+
+        // تشغيل سورة
+        function playSurah(surahId) {
+            const surah = surahs.find(s => s.id == surahId);
+            if (!surah) return;
+            
+            selectedSurah = surah;
+            
+            // إذا لم يتم اختيار قارئ، نختار الأول افتراضيًا
+            if (!selectedReader) {
+                selectedReader = readers[0];
+            }
+            
+            // تحديث واجهة المشغل
+            currentSurah.textContent = `سورة ${surah.name}`;
+            currentReader.textContent = selectedReader.name;
+            currentReaderImg.src = selectedReader.image;
+            currentReaderImg.classList.remove('hidden');
+            
+            // إنشاء عنصر الصوت
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            
+            const audioUrl = `${selectedReader.baseUrl}${surah.id.toString().padStart(3, '0')}.mp3`;
+            currentAudio = new Audio(audioUrl);
+            
+            // إعداد مستمعي الأحداث للصوت
+            currentAudio.addEventListener('loadedmetadata', () => {
+                duration.textContent = formatTime(currentAudio.duration);
+            });
+            
+            currentAudio.addEventListener('timeupdate', () => {
+                const progress = (currentAudio.currentTime / currentAudio.duration) * 100;
+                progressFill.style.width = `${progress}%`;
+                currentTime.textContent = formatTime(currentAudio.currentTime);
+            });
+            
+            currentAudio.addEventListener('ended', () => {
+                if (isRepeating) {
+                    currentAudio.currentTime = 0;
+                    currentAudio.play();
+                } else {
+                    isPlaying = false;
+                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                }
+            });
+            
+            // تحديث حالة الإشارة المرجعية
+            updateBookmarkButtonState();
+            
+            // تشغيل الصوت
+            togglePlay();
+        }
+
+        // اختيار قارئ
+        function selectReader(readerId) {
+            selectedReader = readers.find(r => r.id == readerId);
+            if (!selectedReader) return;
+            
+            // إذا كان هناك سورة محددة، نحدث المشغل
+            if (selectedSurah) {
+                currentReader.textContent = selectedReader.name;
+                currentReaderImg.src = selectedReader.image;
+                currentReaderImg.classList.remove('hidden');
+                
+                // إعادة تشغيل السورة مع القارئ الجديد
+                playSurah(selectedSurah.id);
+            }
+            
+            // العودة إلى قسم السور
+            switchTab('surah');
+        }
+
+        // التحكم في التشغيل
+        function togglePlay() {
+            if (!selectedSurah || !currentAudio) {
+                alert('يرجى اختيار سورة أولاً');
+                return;
+            }
+            
+            isPlaying = !isPlaying;
+            
+            if (isPlaying) {
+                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                currentAudio.playbackRate = currentPlaybackRate;
+                currentAudio.play().catch(e => {
+                    console.error('Error playing audio:', e);
+                    alert('حدث خطأ في تشغيل الصوت. قد يكون هناك مشكلة في الاتصال بالإنترنت.');
+                    isPlaying = false;
+                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                });
+            } else {
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                currentAudio.pause();
+            }
+        }
+
+        // الوظائف الأخرى للمشغل
+        function playPrevious() {
+            if (!selectedSurah) return;
+            
+            const currentIndex = surahs.findIndex(s => s.id === selectedSurah.id);
+            if (currentIndex > 0) {
+                playSurah(surahs[currentIndex - 1].id);
+            }
+        }
+
+        function playNext() {
+            if (!selectedSurah) return;
+            
+            const currentIndex = surahs.findIndex(s => s.id === selectedSurah.id);
+            if (currentIndex < surahs.length - 1) {
+                playSurah(surahs[currentIndex + 1].id);
+            }
+        }
+
+        function toggleRepeat() {
+            isRepeating = !isRepeating;
+            repeatBtn.classList.toggle('text-green-600');
+        }
+
+        function toggleCurrentBookmark() {
+            if (!selectedSurah || !selectedReader) return;
+            toggleBookmark(selectedSurah.id, selectedReader.id);
+        }
+
+        function toggleBookmark(surahId, readerId) {
+            const index = bookmarks.findIndex(b => b.surahId == surahId && b.readerId == readerId);
+            
+            if (index === -1) {
+                bookmarks.push({ surahId, readerId });
+            } else {
+                bookmarks.splice(index, 1);
+            }
+            
+            localStorage.setItem('quranBookmarks', JSON.stringify(bookmarks));
+            updateBookmarkButtonState();
+            renderBookmarks();
+            renderSurahs();
+        }
+        
+        function toggleBookmarkSurah(surahId) {
+            if (!selectedReader) {
+                alert('يرجى اختيار قارئ أولاً');
+                return;
+            }
+            toggleBookmark(surahId, selectedReader.id);
+        }
+        
+        function removeBookmark(surahId, readerId) {
+            const index = bookmarks.findIndex(b => b.surahId == surahId && b.readerId == readerId);
+            
+            if (index !== -1) {
+                bookmarks.splice(index, 1);
+                localStorage.setItem('quranBookmarks', JSON.stringify(bookmarks));
+                renderBookmarks();
+                renderSurahs();
+                updateBookmarkButtonState();
+            }
+        }
+
+        function changePlaybackRate() {
+            const rates = [0.5, 0.75, 1, 1.25, 1.5, 2];
+            const currentIndex = rates.indexOf(currentPlaybackRate);
+            currentPlaybackRate = rates[(currentIndex + 1) % rates.length];
+            playbackRateBtn.textContent = `${currentPlaybackRate}x`;
+            
+            if (currentAudio) {
+                currentAudio.playbackRate = currentPlaybackRate;
+            }
+        }
+
+        // تحديث أزرار الإشارات المرجعية
+        function updateBookmarkButtons() {
+            document.querySelectorAll('.bookmark-surah').forEach(btn => {
+                const surahId = btn.getAttribute('data-surah');
+                const readerId = selectedReader ? selectedReader.id : readers[0].id;
+                const isBookmarked = bookmarks.some(b => b.surahId == surahId && b.readerId == readerId);
+                
+                if (isBookmarked) {
+                    btn.innerHTML = '<i class="fas fa-bookmark text-green-600"></i>';
+                } else {
+                    btn.innerHTML = '<i class="far fa-bookmark"></i>';
+                }
+            });
+        }
+        
+        function updateBookmarkButtonState() {
+            if (!selectedSurah || !selectedReader) {
+                bookmarkBtn.innerHTML = '<i class="far fa-bookmark"></i>';
+                bookmarkBtn.classList.remove('text-green-600');
+                return;
+            }
+            
+            const isBookmarked = bookmarks.some(b => 
+                b.surahId == selectedSurah.id && b.readerId == selectedReader.id
+            );
+            
+            if (isBookmarked) {
+                bookmarkBtn.innerHTML = '<i class="fas fa-bookmark"></i>';
+                bookmarkBtn.classList.add('text-green-600');
+            } else {
+                bookmarkBtn.innerHTML = '<i class="far fa-bookmark"></i>';
+                bookmarkBtn.classList.remove('text-green-600');
+            }
+        }
+
+        // تنسيق الوقت
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
+            
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // بدء التطبيق
+        initApp();
+    </script>
+</body>
+</html>
