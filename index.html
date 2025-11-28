@@ -59,9 +59,25 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 50%;
+            transform: translateX(50%);
+            background: #fef3cd;
+            color: #856404;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
+    <!-- إشعار -->
+    <div id="notification" class="notification"></div>
+
     <!-- التطبيق الرئيسي -->
     <div class="max-w-md mx-auto bg-white min-h-screen shadow-lg relative">
         <!-- الهيدر -->
@@ -210,7 +226,8 @@
                             <i class="fas fa-step-backward"></i>
                         </button>
                         <button id="play-btn" class="bg-green-600 text-white p-2 rounded-full w-10 h-10 flex items-center justify-center">
-                            <i class="fas fa-play"></i>
+                            <i class="fas fa-play" id="play-icon"></i>
+                            <div class="loading hidden" id="loading-icon"></div>
                         </button>
                         <button id="next-btn" class="text-gray-700">
                             <i class="fas fa-step-forward"></i>
@@ -342,43 +359,49 @@
             { id: 114, name: "الناس", ayahs: 6, type: "مكية", page: 604 }
         ];
 
-        // بيانات القراء مع روابط الصوتيات من mp3quran.net
+        // بيانات القراء مع روابط صوتيات بديلة
         const readers = [
             { 
                 id: 1, 
                 name: "إسلام صبحي", 
                 image: "https://via.placeholder.com/100x100/10B981/FFFFFF?text=إسلام+صبحي",
-                baseUrl: "https://server8.mp3quran.net/abdalrhman/"
+                baseUrl: "https://server8.mp3quran.net/abdalrhman/",
+                alternativeUrl: "https://cdn.islamic.network/quran/audio/64/ar.alafasy/"
             },
             { 
                 id: 2, 
                 name: "محمود خليل الحصري", 
                 image: "https://via.placeholder.com/100x100/EF4444/FFFFFF?text=الحصري",
-                baseUrl: "https://server8.mp3quran.net/husary/"
+                baseUrl: "https://server8.mp3quran.net/husary/",
+                alternativeUrl: "https://everyayah.com/data/Husary_128kbps/"
             },
             { 
                 id: 3, 
                 name: "عبد الباسط عبد الصمد", 
                 image: "https://via.placeholder.com/100x100/3B82F6/FFFFFF?text=عبد+الباسط",
-                baseUrl: "https://server8.mp3quran.net/abdulbasit/"
+                baseUrl: "https://server8.mp3quran.net/abdulbasit/",
+                alternativeUrl: "https://everyayah.com/data/AbdulSamad_128kbps/"
             },
             { 
                 id: 4, 
                 name: "مشاري العفاسي", 
                 image: "https://via.placeholder.com/100x100/8B5CF6/FFFFFF?text=العفاسي",
-                baseUrl: "https://server8.mp3quran.net/afasy/"
+                baseUrl: "https://server8.mp3quran.net/afasy/",
+                alternativeUrl: "https://cdn.islamic.network/quran/audio/64/ar.alafasy/"
             },
             { 
                 id: 5, 
                 name: "سعد الغامدي", 
                 image: "https://via.placeholder.com/100x100/F59E0B/FFFFFF?text=الغامدي",
-                baseUrl: "https://server8.mp3quran.net/gaamdi/"
+                baseUrl: "https://server8.mp3quran.net/gaamdi/",
+                alternativeUrl: "https://everyayah.com/data/Saood_ash-Shuraym_128kbps/"
             },
             { 
                 id: 6, 
                 name: "أبو بكر الشاطري", 
                 image: "https://via.placeholder.com/100x100/EC4899/FFFFFF?text=الشاطري",
-                baseUrl: "https://server8.mp3quran.net/shatri/"
+                baseUrl: "https://server8.mp3quran.net/shatri/",
+                alternativeUrl: "https://everyayah.com/data/Shatri_128kbps/"
             }
         ];
 
@@ -412,6 +435,9 @@
         const progressFill = document.getElementById('progress-fill');
         const currentTime = document.getElementById('current-time');
         const duration = document.getElementById('duration');
+        const playIcon = document.getElementById('play-icon');
+        const loadingIcon = document.getElementById('loading-icon');
+        const notification = document.getElementById('notification');
 
         // متغيرات التطبيق
         let currentAudio = null;
@@ -424,6 +450,7 @@
         let isAscending = true;
         let currentFilter = 'all';
         let isDarkMode = localStorage.getItem('darkMode') === 'true';
+        let currentAudioSource = 'primary'; // 'primary' or 'alternative'
 
         // تهيئة التطبيق
         function initApp() {
@@ -432,6 +459,24 @@
             renderBookmarks();
             setupEventListeners();
             applyTheme();
+        }
+
+        // عرض الإشعار
+        function showNotification(message, type = 'info') {
+            notification.textContent = message;
+            notification.style.display = 'block';
+            
+            if (type === 'error') {
+                notification.style.background = '#f8d7da';
+                notification.style.color = '#721c24';
+            } else if (type === 'success') {
+                notification.style.background = '#d1edff';
+                notification.style.color = '#0c5460';
+            }
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
         }
 
         // تطبيق الوضع الليلي
@@ -748,6 +793,23 @@
             }
         }
 
+        // إنشاء رابط الصوت
+        function getAudioUrl(surahId, reader, sourceType) {
+            const surahNum = surahId.toString().padStart(3, '0');
+            
+            if (sourceType === 'alternative') {
+                // استخدام الروابط البديلة
+                if (reader.id === 1 || reader.id === 4) { // إسلام صبحي أو العفاسي
+                    return `${reader.alternativeUrl}${surahId}.mp3`;
+                } else {
+                    return `${reader.alternativeUrl}${surahNum}.mp3`;
+                }
+            } else {
+                // استخدام الروابط الأساسية
+                return `${reader.baseUrl}${surahNum}.mp3`;
+            }
+        }
+
         // تشغيل سورة
         function playSurah(surahId) {
             const surah = surahs.find(s => s.id == surahId);
@@ -766,18 +828,23 @@
             currentReaderImg.src = selectedReader.image;
             currentReaderImg.classList.remove('hidden');
             
-            // إنشاء عنصر الصوت
+            // إيقاف الصوت الحالي إن وجد
             if (currentAudio) {
                 currentAudio.pause();
                 currentAudio = null;
             }
             
-            const audioUrl = `${selectedReader.baseUrl}${surah.id.toString().padStart(3, '0')}.mp3`;
+            // إنشاء عنصر الصوت
+            const audioUrl = getAudioUrl(surahId, selectedReader, currentAudioSource);
             currentAudio = new Audio(audioUrl);
+            
+            // إظهار أيقونة التحميل
+            showLoading(true);
             
             // إعداد مستمعي الأحداث للصوت
             currentAudio.addEventListener('loadedmetadata', () => {
                 duration.textContent = formatTime(currentAudio.duration);
+                showLoading(false);
             });
             
             currentAudio.addEventListener('timeupdate', () => {
@@ -792,7 +859,24 @@
                     currentAudio.play();
                 } else {
                     isPlaying = false;
-                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                    playIcon.classList.remove('hidden');
+                    showLoading(false);
+                }
+            });
+            
+            // معالجة أخطاء الصوت
+            currentAudio.addEventListener('error', (e) => {
+                console.error('Error loading audio:', e);
+                showLoading(false);
+                playIcon.classList.remove('hidden');
+                
+                // إذا فشل المصدر الأساسي، جرب المصدر البديل
+                if (currentAudioSource === 'primary') {
+                    showNotification('جرب مصدر صوت بديل...', 'info');
+                    currentAudioSource = 'alternative';
+                    playSurah(surahId);
+                } else {
+                    showNotification('تعذر تحميل الصوت. يرجى المحاولة لاحقًا.', 'error');
                 }
             });
             
@@ -803,10 +887,24 @@
             togglePlay();
         }
 
+        // عرض/إخفاء أيقونة التحميل
+        function showLoading(show) {
+            if (show) {
+                playIcon.classList.add('hidden');
+                loadingIcon.classList.remove('hidden');
+            } else {
+                playIcon.classList.remove('hidden');
+                loadingIcon.classList.add('hidden');
+            }
+        }
+
         // اختيار قارئ
         function selectReader(readerId) {
             selectedReader = readers.find(r => r.id == readerId);
             if (!selectedReader) return;
+            
+            // إعادة تعيين مصدر الصوت إلى الأساسي
+            currentAudioSource = 'primary';
             
             // إذا كان هناك سورة محددة، نحدث المشغل
             if (selectedSurah) {
@@ -825,24 +923,26 @@
         // التحكم في التشغيل
         function togglePlay() {
             if (!selectedSurah || !currentAudio) {
-                alert('يرجى اختيار سورة أولاً');
+                showNotification('يرجى اختيار سورة أولاً', 'info');
                 return;
             }
             
             isPlaying = !isPlaying;
             
             if (isPlaying) {
-                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                playIcon.className = 'fas fa-pause';
                 currentAudio.playbackRate = currentPlaybackRate;
                 currentAudio.play().catch(e => {
                     console.error('Error playing audio:', e);
-                    alert('حدث خطأ في تشغيل الصوت. قد يكون هناك مشكلة في الاتصال بالإنترنت.');
+                    showNotification('حدث خطأ في تشغيل الصوت', 'error');
                     isPlaying = false;
-                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                    playIcon.className = 'fas fa-play';
+                    showLoading(false);
                 });
             } else {
-                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                playIcon.className = 'fas fa-play';
                 currentAudio.pause();
+                showLoading(false);
             }
         }
 
@@ -880,8 +980,10 @@
             
             if (index === -1) {
                 bookmarks.push({ surahId, readerId });
+                showNotification('تمت الإضافة إلى المفضلة', 'success');
             } else {
                 bookmarks.splice(index, 1);
+                showNotification('تمت الإزالة من المفضلة', 'info');
             }
             
             localStorage.setItem('quranBookmarks', JSON.stringify(bookmarks));
@@ -892,7 +994,7 @@
         
         function toggleBookmarkSurah(surahId) {
             if (!selectedReader) {
-                alert('يرجى اختيار قارئ أولاً');
+                showNotification('يرجى اختيار قارئ أولاً', 'info');
                 return;
             }
             toggleBookmark(surahId, selectedReader.id);
@@ -907,6 +1009,7 @@
                 renderBookmarks();
                 renderSurahs();
                 updateBookmarkButtonState();
+                showNotification('تمت الإزالة من المفضلة', 'info');
             }
         }
 
